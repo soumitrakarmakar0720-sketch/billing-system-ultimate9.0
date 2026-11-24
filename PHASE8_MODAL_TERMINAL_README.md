@@ -1,0 +1,3 @@
+# Phase 8 — Modal checkout on terminal dashboard
+
+Cashfree checkout now opens with redirectTarget `_modal` directly from `/terminal/dashboard`. The authenticated terminal dispatch endpoint returns session details as JSON only when `format=json` is requested; it still validates staff ownership and dispatch expiry. The original gateway page remains available as fallback. Payment success is determined solely by the existing verified server status endpoint. No new migration is required beyond Phase 5. Chrome extension auto-click behavior is separate and may not work inside protected Cashfree frames. Browser restrictions may prevent automatic modal launch; a retry button is provided. Test all payment methods and redirect behavior on staging.

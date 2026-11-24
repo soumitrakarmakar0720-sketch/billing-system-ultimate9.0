@@ -1,0 +1,1 @@
+Admin Bills & Sales: /admin/bills or /admin/sales. Date filters use IST invoice creation dates. Sales count original invoices only, including EMI parents; direct paid/unpaid values exclude EMI plans and foreclosures. Not a payment-date collection report. No schema or environment changes. Keep sh start.sh as Render start command. Test on staging before production.

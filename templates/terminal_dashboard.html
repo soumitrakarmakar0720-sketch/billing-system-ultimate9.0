@@ -1,0 +1,69 @@
+{% extends 'base.html' %}{% block content %}<div class="sound-row"><button type="button" class="btn light small" data-sound-toggle>Enable payment sound</button></div>
+<div class="page-head"><div><div class="eyebrow">OWL STORE · PAY TERMINAL</div><h1>Terminal ready · {{ terminal_user.username }}</h1></div><form method="post" action="{{ url_for('terminal_logout') }}"><input type="hidden" name="_csrf" value="{{ csrf_token() }}"><button class="btn light">Logout</button></form></div>
+<section class="panel" style="text-align:center;padding:3rem 1rem"><button type="button" id="kiosk" class="btn light">Full screen</button><h2 id="terminal-title">Ready for next payment</h2><p id="message" class="muted" role="status" aria-live="polite">Waiting for Cashfree payment from the normal dashboard…</p><button id="retry-checkout" type="button" class="btn primary" style="display:none">Open Cashfree Checkout</button><p id="terminal-error" role="alert"></p></section>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+<script>
+(() => {
+  const nextUrl={{ url_for('terminal_next_payment')|tojson }};
+  const terminalLogin={{ url_for('terminal_login')|tojson }};
+  const title=document.getElementById('terminal-title');
+  const message=document.getElementById('message');
+  const retry=document.getElementById('retry-checkout');
+  const error=document.getElementById('terminal-error');
+  let active=null, busy=false, cf=null, celebrating=false;
+  const sleep=ms=>new Promise(resolve=>setTimeout(resolve,ms));
+  async function checkStatus(){
+    if(!active)return;
+    try {
+      const r=await fetch(active.status_url,{cache:'no-store',credentials:'same-origin'});
+      if(!r.ok)return;
+      const data=await r.json();
+      if(data.paid && active && !celebrating){
+        celebrating=true; OWLSuccess.show();
+        title.textContent='Payment verified'; message.textContent='Payment successful. Ready for next payment…';
+        retry.style.display='none'; error.textContent=''; active=null;
+        await sleep(3000); celebrating=false;
+        if(!active){title.textContent='Ready for next payment';message.textContent='Waiting for Cashfree payment from the normal dashboard…';}
+      }
+    }catch(_){/* Keep polling; never assume paid. */}
+  }
+  async function launch(){
+    if(!active||busy)return;
+    busy=true;retry.style.display='none';error.textContent='';
+    title.textContent='Cashfree checkout';message.textContent='Opening secure checkout over terminal dashboard…';
+    try {
+      if(typeof Cashfree!=='function')throw new Error('Cashfree SDK could not load');
+      cf=cf||Cashfree({mode:active.mode});
+      const result=await cf.checkout({paymentSessionId:active.payment_session_id,redirectTarget:'_modal'});
+      if(result&&result.error)throw new Error(result.error.message||'Checkout unavailable');
+      if(active)message.textContent='Checkout closed. Waiting for verified payment…';
+    }catch(e){
+      error.textContent='Checkout could not open automatically. Use the button to retry.';
+    }finally{
+      busy=false;
+      if(active){retry.style.display='inline-block';await checkStatus();}
+    }
+  }
+  retry.addEventListener('click',launch);
+  async function poll(){
+    if(active || celebrating || busy)return;
+    try{
+      const r=await fetch(nextUrl,{cache:'no-store',credentials:'same-origin'});
+      if(r.redirected){window.location.assign(terminalLogin);return;}
+      if(!r.ok)return;
+      const data=await r.json();if(!data.url)return;
+      // Fetch the session from the authenticated, single-use dispatch route;
+      // do not navigate away from the terminal dashboard.
+      const url=new URL(data.url,window.location.origin);url.searchParams.set('format','json');
+      const sr=await fetch(url.toString(),{cache:'no-store',credentials:'same-origin'});
+      if(!sr.ok){error.textContent='Could not load checkout. Refresh or contact admin.';return;}
+      active=await sr.json();
+      await launch();
+    }catch(_){message.textContent='Connection interrupted; reconnecting…';}
+  }
+  document.getElementById('kiosk').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.documentElement.requestFullscreen().catch(()=>{});};
+  async function heartbeat(){try{const r=await fetch({{ url_for('terminal_heartbeat')|tojson }},{method:'POST',body:new URLSearchParams({_csrf:{{ csrf_token()|tojson }}})});if(r.redirected)location.assign(terminalLogin);}catch(_){}}
+  heartbeat();setInterval(heartbeat,15000);
+  poll();setInterval(poll,2000);setInterval(checkStatus,3000);
+})();
+</script>{% endblock %}

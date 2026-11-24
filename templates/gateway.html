@@ -1,0 +1,37 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="panel">
+  <h1>Secure Cashfree checkout</h1>
+  <p>Order {{ order.order_no }} · ₹{{ order.total|rupees }}</p>
+  <button id="pay" type="button" class="btn primary">Open Cashfree checkout</button>
+  <p id="gateway-error" role="alert" aria-live="polite"></p>
+  <p class="muted">Your bill is marked paid only after a verified Cashfree payment notification.</p>
+</section>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+<script>
+  const button = document.getElementById('pay');
+  const errorBox = document.getElementById('gateway-error');
+  const sessionId = {{ payment_session_id|tojson }};
+  const mode = {{ ('production' if cf_env == 'production' else 'sandbox')|tojson }};
+  button.addEventListener('click', async () => {
+    button.disabled = true;
+    errorBox.textContent = '';
+    try {
+      if (typeof Cashfree !== 'function') throw new Error('Cashfree SDK did not load');
+      const cashfree = Cashfree({ mode });
+      const result = await cashfree.checkout({
+        paymentSessionId: sessionId,
+        redirectTarget: '_self'
+      });
+      if (result && result.error) {
+        errorBox.textContent = result.error.message || 'Unable to open Cashfree checkout.';
+      }
+    } catch (error) {
+      console.error('Cashfree checkout initialization failed', error);
+      errorBox.textContent = 'Unable to open Cashfree checkout. Please retry or use UPI.';
+    } finally {
+      button.disabled = false;
+    }
+  });
+</script>
+{% endblock %}

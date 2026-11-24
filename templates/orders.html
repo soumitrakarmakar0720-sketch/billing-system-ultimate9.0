@@ -1,0 +1,93 @@
+
+{% extends 'base.html' %}
+{% block content %}
+
+<div class="page-head">
+  <div>
+    <div class="eyebrow">PAYMENT MANAGEMENT</div>
+    <h1>Orders &amp; verification</h1>
+  </div>
+  {% if is_admin %}
+    <a class="btn light" href="{{ url_for('export_orders') }}">Export CSV</a>
+  {% endif %}
+</div>
+
+<section class="panel">
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Order</th>
+          <th>Customer</th>
+          <th>Amount</th>
+          <th>Status</th>
+          <th>UTR</th>
+          <th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for o in orders %}
+        <tr>
+          <td>
+            <a href="{{ url_for('emi_detail', order_id=o.id) if o.status in ('EMI_PLAN', 'FORECLOSED') else url_for('checkout', token=o.public_token) }}">
+              {{ o.order_no }}
+            </a>
+          </td>
+          <td>{{ o.customer }}</td>
+          <td>₹{{ o.total|rupees }}</td>
+          <td>
+            {{ o.status }}
+            {% if o.rejection_reason %}
+              <small>{{ o.rejection_reason }}</small>
+            {% endif %}
+          </td>
+          <td>{{ o.payment_ref or '—' }}</td>
+          <td>
+            {% if o.status in ('EMI_PLAN', 'FORECLOSED') %}
+              <a class="btn light small" href="{{ url_for('emi_detail', order_id=o.id) }}">
+                View all {{ o.emi_months }} EMIs
+              </a>
+            {% elif is_admin and o.status != 'PAID' %}
+              <form method="post" action="{{ url_for('update_status', order_id=o.id) }}" class="action-form">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="confirm">
+                <label>
+                  <input type="checkbox" name="verified" value="yes" required>
+                  Verified bank credit
+                </label>
+                <button class="btn primary small" type="submit">Confirm Payment</button>
+              </form>
+              <form method="post" action="{{ url_for('update_status', order_id=o.id) }}" class="action-form">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <input type="hidden" name="action" value="reject">
+                <input name="reason" placeholder="Rejection reason" minlength="3" maxlength="300" required>
+                <button class="btn light small" type="submit">Reject Payment</button>
+              </form>
+            {% else %}
+              —
+            {% endif %}
+
+            {% if is_admin and o.status not in ('EMI_PLAN', 'PAYMENT_REPORTED') %}
+              <form method="post"
+                    action="{{ url_for('delete_bill', order_id=o.id) }}"
+                    class="action-form"
+                    onsubmit="return confirm('Move bill {{ o.order_no }} to Trash? Payment records will be retained.')">
+                <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+                <input name="confirm"
+                       placeholder="Type {{ o.order_no }}"
+                       aria-label="Confirm bill number"
+                       required>
+                <button class="btn light small" type="submit">Move to Trash</button>
+              </form>
+            {% endif %}
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="6">No orders found.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</section>
+
+{% endblock %}

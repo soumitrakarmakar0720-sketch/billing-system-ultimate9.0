@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+{% block content %}<div class="sound-row"><button type="button" class="btn light small" data-sound-toggle>Enable payment sound</button></div>
+<section class="panel" style="text-align:center;max-width:760px;margin:2rem auto;padding:2rem">
+  <div class="eyebrow">OWL STORE · CASHFREE TERMINAL</div>
+  <h1>{{ order.order_no }}</h1>
+  <h2>₹{{ order.total|rupees }}</h2>
+  <p id="status-text" role="status" aria-live="polite">Opening secure Cashfree checkout…</p>
+  <button type="button" class="btn primary" id="pay" style="display:none">Open Cashfree Checkout</button>
+  <p id="gateway-error" role="alert" aria-live="assertive"></p>
+  <p class="muted tiny">Only verified payment confirmation marks this invoice paid.</p>
+</section>
+<script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+<script>
+(() => {
+  const sessionId = {{ payment_session_id|tojson }};
+  const mode = {{ ('production' if cf_env == 'production' else 'sandbox')|tojson }};
+  const statusUrl = {{ url_for('terminal_payment_status', order_id=order.id)|tojson }};
+  const terminalUrl = {{ url_for('terminal_dashboard')|tojson }};
+  const button = document.getElementById('pay');
+  const status = document.getElementById('status-text');
+  const errorBox = document.getElementById('gateway-error');
+  let opening = false;
+  let complete = false;
+  async function checkPayment() {
+    try {
+      const r = await fetch(statusUrl, {cache:'no-store',credentials:'same-origin'});
+      if (!r.ok || r.redirected) return;
+      const data = await r.json();
+      if (data.paid && !complete) {
+        OWLSuccess.show({{ order.order_no|tojson }});
+        complete = true;
+        status.textContent = 'Payment successful — verified by OWL STORE.';
+        button.style.display = 'none';
+        errorBox.textContent = '';
+        status.textContent = 'Payment successful — returning to terminal…';
+        setTimeout(()=>window.location.replace(terminalUrl),3000);
+        return;
+
+      }
+    } catch (_) { /* Poll again; never infer success from checkout closure. */ }
+  }
+  async function launch() {
+    if (opening || complete) return;
+    opening = true;
+    button.disabled = true;
+    errorBox.textContent = '';
+    try {
+      if (typeof Cashfree !== 'function') throw new Error('Cashfree SDK unavailable');
+      const cf = Cashfree({mode});
+      // Modal checkout keeps the terminal page alive; the Cashfree order's
+      // existing return_url points to the customer bill page and must not
+      // navigate this staff terminal away from its session.
+      const result = await cf.checkout({paymentSessionId:sessionId, redirectTarget:'_modal'});
+      if (result && result.error) throw new Error(result.error.message || 'Checkout unavailable');
+      status.textContent = 'Waiting for verified payment…';
+      await checkPayment();
+    } catch (e) {
+      status.textContent = 'Cashfree could not open automatically.';
+      errorBox.textContent = 'Select Open Cashfree Checkout to retry. If a 400 error appears, check Cashfree domain allowlisting and session validity.';
+    } finally {
+      opening = false;
+      button.disabled = false;
+      if (!complete) button.style.display = 'inline-block';
+    }
+  }
+  button.addEventListener('click', launch);
+  // Start immediately; browser restrictions may require the visible retry button.
+  window.addEventListener('load', () => { checkPayment(); launch(); });
+  setInterval(checkPayment, 3000);
+})();
+</script>
+{% endblock %}

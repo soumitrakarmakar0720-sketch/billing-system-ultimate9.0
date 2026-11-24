@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Find My Bills | OWL STORE</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}"><link rel="stylesheet" href="{{ url_for('static', filename='banking.css') }}"></head><body class="customer-home"><main class="container"><div class="top"><a class="brand" href="{{ url_for('home') }}">🦉 OWL STORE <small>ULTIMATE</small></a><a href="{{ url_for('dashboard') if session.get('user_id') else url_for('login') }}">{{ 'Dashboard' if session.get('user_id') else 'Admin / Staff Login' }}</a></div><section class="banking-hero landing-hero"><div class="eyebrow">OWL STORE • CUSTOMER SERVICES</div><h1>Your bills. One simple place.</h1><p>Find invoices, pay outstanding bills and manage your EMI plans.</p></section><div class="panel">
+<h1>Find &amp; Pay Your Bills</h1><p>Enter the mobile number used when your bill was created.</p>
+<form method="post" action="{{ url_for('customer_bills') }}">
+<input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+<label for="phone">Mobile number</label>
+<input id="phone" name="phone" type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="10-digit mobile number" autocomplete="tel-national" required>
+<button type="submit">Search My Bills</button></form>
+{% for category, message in get_flashed_messages(with_categories=true) %}<p class="error">{{ message }}</p>{% endfor %}
+{% if matches is not none %}
+<h2>Search results</h2>
+{% if matches %}
+{% for bill in matches %}<div class="bill">
+<strong>Bill {{ bill.order_no }}</strong><p>Created: {{ bill.created_at.strftime('%d %b %Y') }}<br>
+Amount: ₹{{ bill.total | rupees }}<br><span class="status">Status: {{ bill.status | replace('_',' ') }}</span></p>
+<a class="pay" href="{{ url_for('customer_emi', token=bill.public_token) if bill.status in ('EMI_PLAN','FORECLOSED') else url_for('checkout', token=bill.public_token) }}">{% if bill.status == 'PAID' %}View Bill{% else %}View &amp; Pay{% endif %}</a>
+</div>{% endfor %}
+{% else %}<p>No matching bills found. Check the number used during billing.</p>{% endif %}
+{% endif %}
+<p class="muted">No OTP is required. Anyone with this phone number can view associated bill numbers, amounts and payment status. Do not share sensitive information in bill details.</p>
+</div></main></body></html>

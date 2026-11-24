@@ -1,0 +1,48 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport"
+        content="width=device-width, initial-scale=1">
+  <title>OWL STORE - Cashfree Checkout</title>
+  <script src="https://sdk.cashfree.com/js/v3/cashfree.js"></script>
+</head>
+<body>
+  <h2>OWL STORE - Secure Checkout</h2>
+  <p>Click below to continue to Cashfree.</p>
+
+  <button id="payBtn" type="button">
+    Open Cashfree Checkout
+  </button>
+  <p id="error" role="alert"></p>
+
+  <script>
+    const cashfree = Cashfree({
+      mode: {{ cashfree_mode | tojson }}
+    });
+
+    const sessionId = {{ payment_session_id | tojson }};
+
+    document.getElementById("payBtn").addEventListener(
+      "click", async () => {
+        try {
+          const result = await cashfree.checkout({
+            paymentSessionId: sessionId,
+            redirectTarget: "_self"
+          });
+
+          if (result && result.error) {
+            document.getElementById("error").textContent =
+              result.error.message || "Checkout failed.";
+          }
+        } catch (err) {
+          document.getElementById("error").textContent =
+            "Unable to open checkout. Please try again.";
+          console.error("Cashfree checkout failed", err);
+        }
+      }
+    );
+  </script>
+</body>
+</html>

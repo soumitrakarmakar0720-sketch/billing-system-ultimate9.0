@@ -1,0 +1,28 @@
+services:
+  - type: web
+    name: owl-store-ultimate
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: sh start.sh
+    healthCheckPath: /health
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: COOKIE_SECURE
+        value: '1'
+      - key: DATABASE_URL
+        sync: false
+      - key: ADMIN_USERNAME
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: UPI_ID
+        sync: false
+      - key: UPI_NAME
+        value: OWL STORE
+      - key: CASHFREE_ENV
+        value: sandbox
+      - key: CASHFREE_CLIENT_ID
+        sync: false
+      - key: CASHFREE_CLIENT_SECRET
+        sync: false

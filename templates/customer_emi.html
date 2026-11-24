@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+{% block content %}
+<section class="panel">
+  <div class="eyebrow">OWL STORE · EMI ACCOUNT</div>
+  <h1>EMI plan {{ parent.order_no }}</h1>
+  <p>{{ parent.customer }} · {{ parent.status }}</p>
+  <div class="stats">
+    <div class="panel"><span>Original bill</span><h2>₹{{ parent.total|rupees }}</h2></div>
+    <div class="panel"><span>Confirmed paid</span><h2>₹{{ paid|rupees }}</h2></div>
+    <div class="panel"><span>Outstanding</span><h2>₹{{ remaining|rupees }}</h2></div>
+  </div>
+  <p>Installments must be paid in order. Only the earliest unpaid EMI can be paid individually.</p>
+  <div class="table-wrap"><table>
+    <tr><th>EMI</th><th>Due</th><th>Amount</th><th>Status</th><th>Payment</th></tr>
+    {% for o in parts %}
+    <tr><td>{{ o.installment_number }} / {{ parent.emi_months }}</td><td>{{ o.due_date }}</td>
+      <td>₹{{ o.total|rupees }}</td><td>{{ o.status }}</td>
+      <td>{% if o == current %}<a class="btn primary small" href="{{ url_for('checkout', token=o.public_token) }}">Pay this EMI</a>
+      {% elif o.status == 'PAID' %}Paid{% elif o.status == 'SETTLED_FORECLOSURE' %}Settled by foreclosure
+      {% else %}Locked{% endif %}</td></tr>
+    {% endfor %}
+  </table></div>
+</section>
+{% if parent.status == 'EMI_PLAN' and remaining > 0 %}
+<section class="panel">
+  <div class="eyebrow">EARLY SETTLEMENT</div>
+  <h2>Foreclose all remaining EMIs</h2>
+  <p>Pay the complete outstanding balance in one Cashfree transaction. Your EMI plan will be closed only after payment verification.</p>
+  <h2>₹{{ remaining|rupees }}</h2>
+  {% if foreclosure %}
+    <p><strong>Foreclosure payment pending:</strong> ₹{{ foreclosure.amount|rupees }}. You may resume checkout; do not start a separate installment payment.</p>
+  {% endif %}
+  <form method="post" action="{{ url_for('customer_start_foreclosure', token=parent.public_token) }}"
+        onsubmit="return confirm('Proceed to Cashfree to settle the entire remaining EMI balance?')">
+    <input type="hidden" name="_csrf" value="{{ csrf_token() }}">
+    <button type="submit" class="btn primary">{{ 'Resume foreclosure checkout' if foreclosure else 'Foreclose all EMIs' }} — ₹{{ remaining|rupees }}</button>
+  </form>
+  <p class="muted">No extra foreclosure fee is added by this feature. Payment status is confirmed by the store after a verified gateway event.</p>
+</section>
+{% elif parent.status == 'FORECLOSED' %}
+<section class="panel"><h2>EMI plan foreclosed</h2><p>Your remaining installments have been settled.</p></section>
+{% endif %}
+{% endblock %}

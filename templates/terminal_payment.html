@@ -1,0 +1,16 @@
+{% extends 'base.html' %}
+{% block content %}<div class="sound-row"><button type="button" class="btn light small" data-sound-toggle>Enable payment sound</button></div>
+<section class="panel" style="max-width:760px;margin:2rem auto;text-align:center;padding:2rem">
+  <div class="eyebrow">OWL STORE · PAYMENT STATUS</div>
+  <h1>{{ order.order_no }}</h1>
+  <h2>₹{{ order.total|rupees }}</h2>
+  <p id="state" role="status">Checking verified payment status…</p>
+  <div id="receipt"></div>
+  <a class="btn light" href="{{ url_for('terminal_dashboard') }}">Back to Terminal</a>
+</section>
+<script>
+const endpoint={{ url_for('terminal_payment_status', order_id=order.id)|tojson }};
+async function check(){try{const r=await fetch(endpoint,{cache:'no-store',credentials:'same-origin'});if(!r.ok)return;const d=await r.json();document.getElementById('state').textContent=d.paid?'Payment successful — verified.':'Waiting for Payment…';if(d.paid&&d.receipt_url){OWLSuccess.show({{ order.order_no|tojson }});const a=document.createElement('a');a.href=d.receipt_url;a.className='btn primary';a.textContent='Download Receipt';document.getElementById('receipt').replaceChildren(a);}}catch(_){}}
+check();setInterval(check,3000);
+</script>
+{% endblock %}
